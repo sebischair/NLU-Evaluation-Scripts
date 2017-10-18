@@ -5,8 +5,12 @@ import json
 class Converter(object):
 	@staticmethod
 	def tokenizer(s):
-		return s.replace(".", " . ").replace(",", " , ").replace("'", " ' ").replace("?", " ? ").replace("!", " ! ").replace(":"," : ").replace("-"," - ").replace("/"," / ").replace("("," ( ").replace(")"," ) ").replace("  "," ").split(" ")
+		return s.replace(".", " . ").replace(",", " , ").replace("'", " ' ").replace("?", " ? ").replace("!", " ! ").replace("&", " & ").replace(":"," : ").replace("-"," - ").replace("/"," / ").replace("("," ( ").replace(")"," ) ").replace("  "," ").split(" ")
 	
+	@staticmethod
+	def detokenizer(s):
+		return s.replace(" . ", ".").replace(" , ", ",").replace(" ' ","'").replace(" ? ","?").replace(" ! ","!").replace(" & ", "&").replace(" : ",":").replace(" - ","-").replace(" / ","/").replace(" ( ","(").replace(" ) ",")")
+		
 	@staticmethod
 	def write_json(file, content):
 		f = open(file, "w")
