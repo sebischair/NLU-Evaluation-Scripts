@@ -61,4 +61,4 @@ class LuisConverter(Converter):
 		luis_json["regex_features"] = []
 		luis_json["utterances"] = self.utterances
 
-		self.write_json(file, json.dumps(luis_json, sort_keys=False, indent=4, separators=(',', ': '), ensure_ascii=False).encode('utf-8'))
+		self.write_json(file, luis_json)

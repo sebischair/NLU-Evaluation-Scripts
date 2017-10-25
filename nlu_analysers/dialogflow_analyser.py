@@ -1,16 +1,10 @@
 from analyser import *
 
-class LuisAnalyser(Analyser):
-	@staticmethod
-	def detokenizer(s):
-		return s.replace(" . ", ".").replace(" , ", ",").replace(" ' ","'").replace(" ? ","?").replace(" ! ","!").replace(" & ", "&").replace(" : ",":").replace(" - ","-").replace(" / ","/").replace(" ( ","(").replace(" ) ",")")
-		
-	
-	def __init__(self, application_id, subscription_key):
-		super(LuisAnalyser, self).__init__()
-		self.subscription_key = subscription_key
-		self.application_id = application_id
-		self.url = "https://westus.api.cognitive.microsoft.com/luis/v2.0/apps/"+self.application_id+"?subscription-key="+self.subscription_key+"&verbose=true&timezoneOffset=0.0&q=%s"
+class DialogflowAnalyser(Analyser):
+	def __init__(self, api_key):
+		super(DialogflowAnalyser, self).__init__()
+		self.api_key = api_key
+		self.url = "https://api.api.ai/v1/query?v=20170101&sessionId=1234&lang=en&query=%s"
 	
 	def get_annotations(self, corpus, output):
 		data = json.load(open(corpus))		
@@ -19,7 +13,8 @@ class LuisAnalyser(Analyser):
 		for s in data["sentences"]:
 			if not s["training"]: #only use test data
 				encoded_text = urllib.quote(s['text'])
-				annotations['results'].append(requests.get(self.url % encoded_text,data={},headers={}).json())
+				headers = { 'Authorization' : 'Bearer %s' %  self.api_key}
+				annotations['results'].append(requests.get(self.url % encoded_text,data={},headers=headers).json())
 		
 		file = open(output, "w")
   		file.write(json.dumps(annotations, sort_keys=False, indent=4, separators=(',', ': '), ensure_ascii=False).encode('utf-8'))
@@ -38,13 +33,14 @@ class LuisAnalyser(Analyser):
   		
   		i = 0
   		for a in annotations["results"]:
-  			if not a["query"] == gold_standard[i]["text"]:
-  				print a["query"]
-  				print gold_standard[i]["text"]
+  			if not a["result"]["resolvedQuery"] == gold_standard[i]["text"]:
   				print "WARNING! Texts not equal"
   			 
   			#intent  			 			
-  			aIntent = a["topScoringIntent"]["intent"]
+  			try:
+  				aIntent = a["result"]["metadata"]["intentName"]
+  			except:
+  				aIntent = "None"  				
   			oIntent = gold_standard[i]["intent"]
   			
   			Analyser.check_key(analysis["intents"], aIntent)
@@ -60,7 +56,10 @@ class LuisAnalyser(Analyser):
   				
   				
   			#entities
-  			aEntities = a["entities"]
+  			try:
+  				aEntities = a["result"]["metadata"]["entities"]
+  			except:
+  				aEntities=[]
   			oEntities = gold_standard[i]["entities"]
   			  			  			
   			for x in aEntities:
@@ -72,7 +71,7 @@ class LuisAnalyser(Analyser):
   					truePos = False
   					
   					for y in oEntities:
-  						if LuisAnalyser.detokenizer(x["entity"]) == y["text"].lower():
+  						if x["entity"] == y["text"].lower():
   							if x["type"] == y["entity"]: #truePos
   								truePos = True
   								oEntities.remove(y)

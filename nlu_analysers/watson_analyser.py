@@ -1,16 +1,13 @@
 from analyser import *
 
-class LuisAnalyser(Analyser):
-	@staticmethod
-	def detokenizer(s):
-		return s.replace(" . ", ".").replace(" , ", ",").replace(" ' ","'").replace(" ? ","?").replace(" ! ","!").replace(" & ", "&").replace(" : ",":").replace(" - ","-").replace(" / ","/").replace(" ( ","(").replace(" ) ",")")
+class WatsonAnalyser(Analyser):
+	def __init__(self, workspace_id, user, password):
+		super(WatsonAnalyser, self).__init__()
+		self.workspace_id = workspace_id
+		self.user = user
+		self.password = password
+		self.url = "https://gateway.watsonplatform.net/conversation/api/v1/workspaces/" + self.workspace_id + "/message?version=2016-09-20"
 		
-	
-	def __init__(self, application_id, subscription_key):
-		super(LuisAnalyser, self).__init__()
-		self.subscription_key = subscription_key
-		self.application_id = application_id
-		self.url = "https://westus.api.cognitive.microsoft.com/luis/v2.0/apps/"+self.application_id+"?subscription-key="+self.subscription_key+"&verbose=true&timezoneOffset=0.0&q=%s"
 	
 	def get_annotations(self, corpus, output):
 		data = json.load(open(corpus))		
@@ -19,7 +16,10 @@ class LuisAnalyser(Analyser):
 		for s in data["sentences"]:
 			if not s["training"]: #only use test data
 				encoded_text = urllib.quote(s['text'])
-				annotations['results'].append(requests.get(self.url % encoded_text,data={},headers={}).json())
+				headers = {'content-type': 'application/json'}
+				data = {"input":{"text":encoded_text}}
+				r = requests.post(self.url, data=json.dumps(data), headers=headers, auth=(self.user, self.password))
+				annotations['results'].append(r.text)
 		
 		file = open(output, "w")
   		file.write(json.dumps(annotations, sort_keys=False, indent=4, separators=(',', ': '), ensure_ascii=False).encode('utf-8'))
@@ -34,18 +34,18 @@ class LuisAnalyser(Analyser):
 			if not s["training"]: #only use test data
 				gold_standard.append(s)
   		
+  		#print urllib.unquote(open(annotations_file).read()).decode('utf8') 
   		annotations = json.load(open(annotations_file))
   		
   		i = 0
   		for a in annotations["results"]:
-  			if not a["query"] == gold_standard[i]["text"]:
-  				print a["query"]
-  				print gold_standard[i]["text"]
+  			a = json.loads(a)
+  			if not urllib.unquote(a["input"]["text"]).decode('utf8') == gold_standard[i]["text"]:
   				print "WARNING! Texts not equal"
   			 
   			#intent  			 			
-  			aIntent = a["topScoringIntent"]["intent"]
-  			oIntent = gold_standard[i]["intent"]
+  			aIntent = a["intents"][0]["intent"]
+  			oIntent = gold_standard[i]["intent"].replace(" ", "_")
   			
   			Analyser.check_key(analysis["intents"], aIntent)
   			Analyser.check_key(analysis["intents"], oIntent)
@@ -62,30 +62,30 @@ class LuisAnalyser(Analyser):
   			#entities
   			aEntities = a["entities"]
   			oEntities = gold_standard[i]["entities"]
-  			  			  			
+  				
   			for x in aEntities:
-  				Analyser.check_key(analysis["entities"], x["type"])
+  				Analyser.check_key(analysis["entities"], x["entity"])
   				
   				if len(oEntities) < 1: #false pos
-  					analysis["entities"][x["type"]]["falsePos"] += 1	
+  					analysis["entities"][x["entity"]]["falsePos"] += 1	
   				else:
   					truePos = False
   					
   					for y in oEntities:
-  						if LuisAnalyser.detokenizer(x["entity"]) == y["text"].lower():
-  							if x["type"] == y["entity"]: #truePos
+  						if x["value"] == y["text"].lower():
+  							if x["entity"] == y["entity"]: #truePos
   								truePos = True
   								oEntities.remove(y)
   								break
   							else:						 #falsePos + falseNeg
-  								analysis["entities"][x["type"]]["falsePos"] += 1
+  								analysis["entities"][x["entity"]]["falsePos"] += 1
   								analysis["entities"][y["entity"]]["falseNeg"] += 1
   								oEntities.remove(y)
   								break
   					if truePos:
-  						analysis["entities"][x["type"]]["truePos"] += 1
+  						analysis["entities"][x["entity"]]["truePos"] += 1
   					else:
-  						analysis["entities"][x["type"]]["falsePos"] += 1	
+  						analysis["entities"][x["entity"]]["falsePos"] += 1	
   				
   				
   			for y in oEntities:
