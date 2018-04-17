@@ -4,7 +4,7 @@ class DialogflowAnalyser(Analyser):
 	def __init__(self, api_key):
 		super(DialogflowAnalyser, self).__init__()
 		self.api_key = api_key
-		self.url = "https://api.api.ai/v1/query?v=20170101&sessionId=1234&lang=en&query=%s"
+		self.url = "https://api.dialogflow.com/v1/query?v=20170712&sessionId=1234&lang=en&query=%s"
 	
 	def get_annotations(self, corpus, output):
 		data = json.load(open(corpus))		
@@ -57,36 +57,35 @@ class DialogflowAnalyser(Analyser):
   				
   			#entities
   			try:
-  				aEntities = a["result"]["metadata"]["entities"]
+  				aEntities = a["result"]["parameters"]
   			except:
   				aEntities=[]
   			oEntities = gold_standard[i]["entities"]
   			  			  			
-  			for x in aEntities:
-  				Analyser.check_key(analysis["entities"], x["type"])
+  			for x in aEntities.keys():
+  				Analyser.check_key(analysis["entities"], x)
   				
   				if len(oEntities) < 1: #false pos
-  					analysis["entities"][x["type"]]["falsePos"] += 1	
+  					analysis["entities"][x]["falsePos"] += 1
   				else:
   					truePos = False
   					
   					for y in oEntities:
-  						if x["entity"] == y["text"].lower():
-  							if x["type"] == y["entity"]: #truePos
+  						if aEntities[x][0].lower() == y["text"].lower():
+  							if x == y["entity"]: #truePos
   								truePos = True
   								oEntities.remove(y)
   								break
   							else:						 #falsePos + falseNeg
-  								analysis["entities"][x["type"]]["falsePos"] += 1
+  								analysis["entities"][x]["falsePos"] += 1
   								analysis["entities"][y["entity"]]["falseNeg"] += 1
   								oEntities.remove(y)
   								break
   					if truePos:
-  						analysis["entities"][x["type"]]["truePos"] += 1
+  						analysis["entities"][x]["truePos"] += 1
   					else:
-  						analysis["entities"][x["type"]]["falsePos"] += 1	
-  				
-  				
+  						analysis["entities"][x]["falsePos"] += 1
+
   			for y in oEntities:
   				Analyser.check_key(analysis["entities"], y["entity"])
   				analysis["entities"][y["entity"]]["falseNeg"] += 1	  					
