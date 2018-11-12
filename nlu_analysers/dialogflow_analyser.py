@@ -1,20 +1,25 @@
+import subprocess
 from analyser import *
 
 class DialogflowAnalyser(Analyser):
-	def __init__(self, api_key):
+	def __init__(self, project_id):
 		super(DialogflowAnalyser, self).__init__()
-		self.api_key = api_key
-		self.url = "https://api.api.ai/v1/query?v=20170101&sessionId=1234&lang=en&query=%s"
+		self.url = "https://dialogflow.googleapis.com/v2/projects/" + project_id + "/agent/sessions/1:detectIntent"
 	
 	def get_annotations(self, corpus, output):
 		data = json.load(open(corpus))		
 		annotations = {'results':[]}
 		
+		p = subprocess.Popen(['gcloud', 'auth', 'print-access-token'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		access_token, err = p.communicate()
+		access_token = str(access_token).strip()
 		for s in data["sentences"]:
 			if not s["training"]: #only use test data
 				encoded_text = urllib.quote(s['text'])
-				headers = { 'Authorization' : 'Bearer %s' %  self.api_key}
-				annotations['results'].append(requests.get(self.url % encoded_text,data={},headers=headers).json())
+				headers = {'Authorization':'Bearer %s' %  access_token, 'Content-Type': 'application/json'}
+				data = {'queryInput': {'text': {'text': encoded_text, 'languageCode': 'en'}}}
+				r = requests.post(self.url, data=json.dumps(data), headers=headers)
+				annotations['results'].append(r.text)
 		
 		file = open(output, "w")
   		file.write(json.dumps(annotations, sort_keys=False, indent=4, separators=(',', ': '), ensure_ascii=False).encode('utf-8'))
@@ -33,12 +38,13 @@ class DialogflowAnalyser(Analyser):
   		
   		i = 0
   		for a in annotations["results"]:
-  			if not a["result"]["resolvedQuery"] == gold_standard[i]["text"]:
+  			a = json.loads(a)
+  			if not urllib.unquote(a["queryResult"]["queryText"]).decode('utf8') == gold_standard[i]["text"]:
   				print "WARNING! Texts not equal"
   			 
   			#intent  			 			
   			try:
-  				aIntent = a["result"]["metadata"]["intentName"]
+  				aIntent = a["queryResult"]["intent"]["displayName"]
   			except:
   				aIntent = "None"  				
   			oIntent = gold_standard[i]["intent"]
@@ -57,36 +63,35 @@ class DialogflowAnalyser(Analyser):
   				
   			#entities
   			try:
-  				aEntities = a["result"]["metadata"]["entities"]
+  				aEntities = a["queryResult"]["parameters"]
   			except:
-  				aEntities=[]
+  				aEntities = {}
   			oEntities = gold_standard[i]["entities"]
   			  			  			
-  			for x in aEntities:
-  				Analyser.check_key(analysis["entities"], x["type"])
+  			for x in aEntities.keys():
+  				Analyser.check_key(analysis["entities"], x)
   				
   				if len(oEntities) < 1: #false pos
-  					analysis["entities"][x["type"]]["falsePos"] += 1	
+  					analysis["entities"][x]["falsePos"] += 1
   				else:
   					truePos = False
   					
   					for y in oEntities:
-  						if x["entity"] == y["text"].lower():
-  							if x["type"] == y["entity"]: #truePos
+  						if len(aEntities[x]) != 0 and aEntities[x][0].lower() == y["text"].lower():
+  							if x == y["entity"]: #truePos
   								truePos = True
   								oEntities.remove(y)
   								break
   							else:						 #falsePos + falseNeg
-  								analysis["entities"][x["type"]]["falsePos"] += 1
+  								analysis["entities"][x]["falsePos"] += 1
   								analysis["entities"][y["entity"]]["falseNeg"] += 1
   								oEntities.remove(y)
   								break
   					if truePos:
-  						analysis["entities"][x["type"]]["truePos"] += 1
+  						analysis["entities"][x]["truePos"] += 1
   					else:
-  						analysis["entities"][x["type"]]["falsePos"] += 1	
-  				
-  				
+  						analysis["entities"][x]["falsePos"] += 1
+
   			for y in oEntities:
   				Analyser.check_key(analysis["entities"], y["entity"])
   				analysis["entities"][y["entity"]]["falseNeg"] += 1	  					

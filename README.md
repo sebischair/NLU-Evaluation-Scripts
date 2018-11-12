@@ -48,7 +48,7 @@ watson_analyser.analyse_annotations("WebApplicationsAnnotations_Watson.json", "W
 ### Dialogflow (formerly known as API.ai)
 ```python
 #dialogflow
-dialogflow_analyser = DialogflowAnalyser("api_key")
+dialogflow_analyser = DialogflowAnalyser("project_id")
 dialogflow_analyser.get_annotations("WebApplicationsCorpus.json", "WebApplicationsAnnotations_Dialogflow.json")
 dialogflow_analyser.analyse_annotations("WebApplicationsAnnotations_Dialogflow.json", "WebApplicationsCorpus.json", "WebApplicationsAnalysis_Dialogflow.json")
 ```

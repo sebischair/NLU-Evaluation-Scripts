@@ -6,7 +6,7 @@ class WatsonAnalyser(Analyser):
 		self.workspace_id = workspace_id
 		self.user = user
 		self.password = password
-		self.url = "https://gateway.watsonplatform.net/conversation/api/v1/workspaces/" + self.workspace_id + "/message?version=2016-09-20"
+		self.url = "https://gateway.watsonplatform.net/assistant/api/v1/workspaces/" + self.workspace_id + "/message?version=2018-02-16"
 		
 	
 	def get_annotations(self, corpus, output):
@@ -44,7 +44,10 @@ class WatsonAnalyser(Analyser):
   				print "WARNING! Texts not equal"
   			 
   			#intent  			 			
-  			aIntent = a["intents"][0]["intent"]
+			if (len(a["intents"]) > 0):
+				aIntent = a["intents"][0]["intent"]
+			else:
+				aIntent = None
   			oIntent = gold_standard[i]["intent"].replace(" ", "_")
   			
   			Analyser.check_key(analysis["intents"], aIntent)
